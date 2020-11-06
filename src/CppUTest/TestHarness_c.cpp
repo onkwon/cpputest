@@ -252,6 +252,14 @@ void* cpputest_realloc_location(void* memory, size_t size, const char* file, siz
 
 void cpputest_free_location(void* buffer, const char* file, size_t line)
 {
+    TestMemoryAllocator *previousAllocator = getCurrentMallocAllocator();
+    if (previousAllocator == NullUnknownAllocator::defaultAllocator()) {
+	setCurrentMallocAllocatorToDefault();
+	cpputest_free_location_with_leak_detection(buffer, file, line);
+	setCurrentMallocAllocator(previousAllocator);
+	return;
+    }
+
     cpputest_free_location_with_leak_detection(buffer, file, line);
 }
 

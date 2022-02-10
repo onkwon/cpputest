@@ -105,19 +105,19 @@ TEST(GlobalSimpleStringMemoryAccountant, stop)
     POINTERS_EQUAL(originalAllocator, SimpleString::getStringAllocator());
 }
 
-static void _stopAccountant(GlobalSimpleStringMemoryAccountant* accountant)
+static void stopAccountant_(GlobalSimpleStringMemoryAccountant* accountant)
 {
     accountant->stop();
 }
 
 TEST(GlobalSimpleStringMemoryAccountant, stopWithoutStartWillFail)
 {
-    testFunction.testFunction_ = _stopAccountant;
+    testFunction.testFunction_ = stopAccountant_;
     fixture.runAllTests();
     fixture.assertPrintContains("Global SimpleString allocator stopped without starting");
 }
 
-static void _changeAllocatorBetweenStartAndStop(GlobalSimpleStringMemoryAccountant* accountant)
+static void changeAllocatorBetweenStartAndStop_(GlobalSimpleStringMemoryAccountant* accountant)
 {
     TestMemoryAllocator* originalAllocator = SimpleString::getStringAllocator();
     accountant->start();
@@ -127,7 +127,7 @@ static void _changeAllocatorBetweenStartAndStop(GlobalSimpleStringMemoryAccounta
 
 TEST(GlobalSimpleStringMemoryAccountant, stopFailsWhenAllocatorWasChangedInBetween)
 {
-    testFunction.testFunction_ = _changeAllocatorBetweenStartAndStop;
+    testFunction.testFunction_ = changeAllocatorBetweenStartAndStop_;
     fixture.runAllTests();
     fixture.assertPrintContains("GlobalStrimpleStringMemoryAccountant: allocator has changed between start and stop!");
 }
@@ -292,6 +292,14 @@ TEST(SimpleString, lowerCase)
     SimpleString s2(s1.lowerCase());
     STRCMP_EQUAL("abcdefg1234", s2.asCharString());
     STRCMP_EQUAL("AbCdEfG1234", s1.asCharString());
+}
+
+TEST(SimpleString, printable)
+{
+    SimpleString s1("ABC\01\06\a\n\r\b\t\v\f\x0E\x1F\x7F""abc");
+    SimpleString s2(s1.printable());
+    STRCMP_EQUAL("ABC\\x01\\x06\\a\\n\\r\\b\\t\\v\\f\\x0E\\x1F\\x7Fabc", s2.asCharString());
+    STRCMP_EQUAL("ABC\01\06\a\n\r\b\t\v\f\x0E\x1F\x7F""abc", s1.asCharString());
 }
 
 TEST(SimpleString, Addition)
@@ -578,6 +586,11 @@ TEST(SimpleString, NULLReportsNullString)
     STRCMP_EQUAL("(null)", StringFromOrNull((char*) NULLPTR).asCharString());
 }
 
+TEST(SimpleString, NULLReportsNullStringPrintable)
+{
+    STRCMP_EQUAL("(null)", PrintableStringFromOrNull((char*) NULLPTR).asCharString());
+}
+
 TEST(SimpleString, Booleans)
 {
     SimpleString s1(StringFrom(true));
@@ -834,7 +847,7 @@ TEST(SimpleString, CollectionWritingToEmptyString)
 
 #ifdef CPPUTEST_64BIT
 
-TEST(SimpleString, _64BitAddressPrintsCorrectly)
+TEST(SimpleString, 64BitAddressPrintsCorrectly)
 {
     char* p = (char*) 0x0012345678901234;
     SimpleString expected("0x12345678901234");
@@ -865,7 +878,7 @@ TEST(SimpleString, BracketsFormattedHexStringFromForLongOnDifferentPlatform)
 /*
  * This test case cannot pass on 32 bit systems.
  */
-IGNORE_TEST(SimpleString, _64BitAddressPrintsCorrectly)
+IGNORE_TEST(SimpleString, 64BitAddressPrintsCorrectly)
 {
 }
 

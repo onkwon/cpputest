@@ -62,6 +62,8 @@
 #	CPPUTEST_CPPFLAGS - flags for the C++ AND C preprocessor
 #	CPPUTEST_CFLAGS - flags for the C complier
 #	CPPUTEST_LDFLAGS - Linker flags
+#	CPPUTEST_CXX_PREFIX - prefix for the C++ compiler
+#	CPPUTEST_CC_PREFIX - prefix for the C compiler
 #----------
 
 # Some behavior is weird on some platforms. Need to discover the platform.
@@ -201,16 +203,22 @@ ifeq ($(COMPILER_NAME),$(CLANG_STR))
 	CPPUTEST_CXX_WARNINGFLAGS += -Weverything -Wno-disabled-macro-expansion -Wno-padded -Wno-global-constructors -Wno-exit-time-destructors -Wno-weak-vtables -Wno-old-style-cast -Wno-c++11-long-long -Wno-c++98-compat-pedantic -Wno-reserved-id-macro -Wno-keyword-macro
 	CPPUTEST_C_WARNINGFLAGS += -Weverything -Wno-padded
 
-# Clang "7" or newer (Xcode 7 or newer command-line tools) introduced new warnings by default that don't exist on previous versions of clang and cause errors when present.
-CLANG_VERSION := $(shell echo $(CC_VERSION_OUTPUT) | grep -o 'clang-[0-9][0-9][0-9]*.')
-CLANG_VERSION_NUM := $(subst .,,$(subst clang-,,$(CLANG_VERSION)))
-CLANG_VERSION_NUM_GT_700 := $(shell [[ $(CLANG_VERSION_NUM) -ge 700 ]] && echo Y)
+# Clang 7 and 12 introduced new warnings by default that don't exist on previous versions of clang and cause errors when present.
+CLANG_VERSION := $(shell echo $(CC_VERSION_OUTPUT) | sed -n 's/.* \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
+CLANG_VERSION_NUM := $(subst .,,$(CLANG_VERSION))
+CLANG_VERSION_NUM_GT_700 := $(shell [ "$(CLANG_VERSION_NUM)" -ge 700 ] && echo Y || echo N)
+CLANG_VERSION_NUM_GT_1200 := $(shell [ "$(CLANG_VERSION_NUM)" -ge 1200 ] && echo Y || echo N)
 
 ifeq ($(CLANG_VERSION_NUM_GT_700), Y)
 # -Wno-reserved-id-macro -> Many CppUTest macros start with __, which is a reserved namespace
 # -Wno-keyword-macro -> CppUTest redefines the 'new' keyword for memory leak tracking
 	CPPUTEST_CXX_WARNINGFLAGS += -Wno-reserved-id-macro -Wno-keyword-macro
 	CPPUTEST_C_WARNINGFLAGS += -Wno-reserved-id-macro -Wno-keyword-macro
+endif
+ifeq ($(CLANG_VERSION_NUM_GT_1200), Y)
+# -Wno-poison-system-directories -> Apparently apple clang thinks everything is a cross compile, making this useless
+	CPPUTEST_CXX_WARNINGFLAGS += -Wno-poison-system-directories
+	CPPUTEST_C_WARNINGFLAGS += -Wno-poison-system-directories
 endif
 endif
 
@@ -485,35 +493,52 @@ TEST_DEPS = $(TEST_OBJS) $(MOCKS_OBJS) $(PRODUCTION_CODE_START) $(TARGET_LIB) $(
 test-deps: $(TEST_DEPS)
 
 $(TEST_TARGET): $(TEST_DEPS)
+ifndef MORE_SILENCE
 	@echo Linking $@
+endif
 	$(SILENCE)$(CXX) -o $@ $^ $(LD_LIBRARIES) $(LDFLAGS)
 
 $(TARGET_LIB): $(OBJ)
+ifndef MORE_SILENCE
 	@echo Building archive $@
+endif
 	$(SILENCE)mkdir -p $(dir $@)
+ifndef MORE_SILENCE
 	$(SILENCE)$(AR) $(ARFLAGS) $@ $^
+else
+	$(SILENCE)$(AR) $(ARFLAGS) $@ $^ >/dev/null
+endif
 	$(SILENCE)$(RANLIB) $@
 
+TEST_RUN_RETURN_CODE_FILE:=$(shell mktemp /tmp/cpputestResult.XXX)
 test: $(TEST_TARGET)
-	$(RUN_TEST_TARGET) | tee $(TEST_OUTPUT)
+	($(RUN_TEST_TARGET); echo $$? > $(TEST_RUN_RETURN_CODE_FILE)) | tee $(TEST_OUTPUT)
+	@ret=$$(cat $(TEST_RUN_RETURN_CODE_FILE)); rm $(TEST_RUN_RETURN_CODE_FILE); if [ "$$ret" -ne 0 ]; then echo "$$(tput setaf 1)$(TEST_TARGET) returned $${ret}$$(tput sgr0)"; fi; exit $$ret
 
 vtest: $(TEST_TARGET)
-	$(RUN_TEST_TARGET) -v  | tee $(TEST_OUTPUT)
+	($(RUN_TEST_TARGET) -v; echo $$? > $(TEST_RUN_RETURN_CODE_FILE)) | tee $(TEST_OUTPUT)
+	@ret=$$(cat $(TEST_RUN_RETURN_CODE_FILE)); rm $(TEST_RUN_RETURN_CODE_FILE); if [ "$$ret" -ne 0 ]; then echo "$$(tput setaf 1)$(TEST_TARGET) returned $${ret}$$(tput sgr0)"; fi; exit $$ret
 
 $(CPPUTEST_OBJS_DIR)/%.o: %.cc
+ifndef MORE_SILENCE
 	@echo compiling $(notdir $<)
+endif
 	$(SILENCE)mkdir -p $(dir $@)
-	$(SILENCE)$(COMPILE.cpp) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
+	$(SILENCE)$(CPPUTEST_CXX_PREFIX)$(COMPILE.cpp) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
 
 $(CPPUTEST_OBJS_DIR)/%.o: %.cpp
+ifndef MORE_SILENCE
 	@echo compiling $(notdir $<)
+endif
 	$(SILENCE)mkdir -p $(dir $@)
-	$(SILENCE)$(COMPILE.cpp) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
+	$(SILENCE)$(CPPUTEST_CXX_PREFIX)$(COMPILE.cpp) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
 
 $(CPPUTEST_OBJS_DIR)/%.o: %.c
+ifndef MORE_SILENCE
 	@echo compiling $(notdir $<)
+endif
 	$(SILENCE)mkdir -p $(dir $@)
-	$(SILENCE)$(COMPILE.c) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
+	$(SILENCE)$(CPPUTEST_CC_PREFIX)$(COMPILE.c) $(DEP_FLAGS) $(OUTPUT_OPTION) $<
 
 ifneq "$(MAKECMDGOALS)" "clean"
 -include $(DEP_FILES)
@@ -521,7 +546,9 @@ endif
 
 .PHONY: clean
 clean:
+ifndef MORE_SILENCE
 	@echo Making clean
+endif
 	$(SILENCE)$(RM) $(STUFF_TO_CLEAN)
 	$(SILENCE)rm -rf gcov $(CPPUTEST_OBJS_DIR) $(CPPUTEST_LIB_DIR)
 	$(SILENCE)find . -name "*.gcno" | xargs rm -f

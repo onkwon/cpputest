@@ -10,6 +10,11 @@
 #include "CppUTest/TestHarness_c.h"
 #include "AllocationInCFile.h"
 
+#if defined(__GNUC__) && __GNUC__ >= 11
+# define NEEDS_DISABLE_FREE_NON_HEEP_WARNING
+#endif /* GCC >= 11 */
+
+
 TEST_GROUP(BasicBehavior)
 {
 };
@@ -60,11 +65,21 @@ TEST(BasicBehavior, DeleteWithSizeParameterWorks)
 }
 #endif
 
+#ifdef NEEDS_DISABLE_FREE_NON_HEEP_WARNING
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wfree-nonheap-object"
+#endif /* NEEDS_DISABLE_FREE_NON_HEEP_WARNING */
+
 static void deleteUnallocatedMemory()
 {
     delete (char*) 0x1234678;
     FAIL("Should never come here"); // LCOV_EXCL_LINE
 } // LCOV_EXCL_LINE
+
+#ifdef NEEDS_DISABLE_FREE_NON_HEEP_WARNING
+# pragma GCC diagnostic pop
+#endif /* NEEDS_DISABLE_FREE_NON_HEEP_WARNING */
+
 
 TEST(BasicBehavior, deleteWillNotThrowAnExceptionWhenDeletingUnallocatedMemoryButCanStillCauseTestFailures)
 {
@@ -128,7 +143,7 @@ TEST_GROUP(MemoryLeakOverridesToBeUsedInProductionCode)
 
 };
 
-#if ! defined CPPUTEST_MEM_LEAK_DETECTION_DISABLED || ! CPPUTEST_MEM_LEAK_DETECTION_DISABLED
+#if CPPUTEST_USE_MEM_LEAK_DETECTION
 
 #ifdef CPPUTEST_USE_NEW_MACROS
     #undef new

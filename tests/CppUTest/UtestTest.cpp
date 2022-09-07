@@ -60,21 +60,33 @@ static volatile double zero = 0.0;
 
 TEST(UtestShell, compareDoubles)
 {
-    double not_a_number = zero / zero;
-    double infinity = 1 / zero;
     CHECK(doubles_equal(1.0, 1.001, 0.01));
+    CHECK(!doubles_equal(1.0, 1.1, 0.05));
+    double a = 1.2345678;
+    CHECK(doubles_equal(a, a, 0.000000001));
+}
+
+#if CPPUTEST_HAS_NAN == 1
+TEST(UtestShell, compareDoublesNaN)
+{
+    double not_a_number = zero / zero;
     CHECK(!doubles_equal(not_a_number, 1.001, 0.01));
     CHECK(!doubles_equal(1.0, not_a_number, 0.01));
     CHECK(!doubles_equal(1.0, 1.001, not_a_number));
-    CHECK(!doubles_equal(1.0, 1.1, 0.05));
+}
+#endif
+
+#if CPPUTEST_HAS_INF == 1
+TEST(UtestShell, compareDoublesInf)
+{
+    double infinity = 1 / zero;
     CHECK(!doubles_equal(infinity, 1.0, 0.01));
     CHECK(!doubles_equal(1.0, infinity, 0.01));
     CHECK(doubles_equal(1.0, -1.0, infinity));
     CHECK(doubles_equal(infinity, infinity, 0.01));
     CHECK(doubles_equal(infinity, infinity, infinity));
-    double a = 1.2345678;
-    CHECK(doubles_equal(a, a, 0.000000001));
 }
+#endif
 
 TEST(UtestShell, FailWillIncreaseTheAmountOfChecks)
 {
@@ -205,6 +217,132 @@ TEST(UtestShell, TestStopsAfterSetupFailure)
     LONGS_EQUAL(0, stopAfterFailure);
 }
 
+#if CPPUTEST_USE_STD_CPP_LIB
+
+// Prevents -Wunreachable-code; should always be 'true'
+static bool shouldThrowException = true;
+
+static void thrownUnknownExceptionMethod_()
+{
+    if (shouldThrowException)
+    {
+        throw 33;
+    }
+    stopAfterFailure++;
+}
+
+static void thrownStandardExceptionMethod_()
+{
+    if (shouldThrowException)
+    {
+        throw std::runtime_error("exception text");
+    }
+    stopAfterFailure++;
+}
+
+TEST(UtestShell, TestStopsAfterUnknownExceptionIsThrown)
+{
+    bool initialRethrowExceptions = UtestShell::isRethrowingExceptions();
+    UtestShell::setRethrowExceptions(false);
+    stopAfterFailure = 0;
+    shouldThrowException = true;
+    fixture.setTestFunction(thrownUnknownExceptionMethod_);
+    fixture.runAllTests();
+    LONGS_EQUAL(1, fixture.getFailureCount());
+    fixture.assertPrintContains("Unexpected exception of unknown type was thrown");
+    LONGS_EQUAL(0, stopAfterFailure);
+    UtestShell::setRethrowExceptions(initialRethrowExceptions);
+}
+
+TEST(UtestShell, TestStopsAfterStandardExceptionIsThrown)
+{
+    bool initialRethrowExceptions = UtestShell::isRethrowingExceptions();
+    UtestShell::setRethrowExceptions(false);
+    stopAfterFailure = 0;
+    shouldThrowException = true;
+    fixture.setTestFunction(thrownStandardExceptionMethod_);
+    fixture.runAllTests();
+    LONGS_EQUAL(1, fixture.getFailureCount());
+    fixture.assertPrintContains("Unexpected exception of type '");
+    fixture.assertPrintContains("runtime_error");
+    fixture.assertPrintContains("' was thrown: exception text");
+    LONGS_EQUAL(0, stopAfterFailure);
+    UtestShell::setRethrowExceptions(initialRethrowExceptions);
+}
+
+TEST(UtestShell, NoExceptionIsRethrownIfEnabledButNotThrown)
+{
+    bool initialRethrowExceptions = UtestShell::isRethrowingExceptions();
+    bool exceptionRethrown = false;
+    stopAfterFailure = 0;
+    UtestShell::setRethrowExceptions(true);
+    shouldThrowException = false;
+    fixture.setTestFunction(thrownUnknownExceptionMethod_);
+    try
+    {
+        fixture.runAllTests();
+    }
+    catch(...)
+    {
+        exceptionRethrown = true;
+    }
+    CHECK_FALSE(exceptionRethrown);
+    LONGS_EQUAL(0, fixture.getFailureCount());
+    LONGS_EQUAL(1, stopAfterFailure);
+    UtestShell::setRethrowExceptions(initialRethrowExceptions);
+}
+
+TEST(UtestShell, UnknownExceptionIsRethrownIfEnabled)
+{
+    bool initialRethrowExceptions = UtestShell::isRethrowingExceptions();
+    bool exceptionRethrown = false;
+    stopAfterFailure = 0;
+    UtestShell::setRethrowExceptions(true);
+    shouldThrowException = true;
+    fixture.setTestFunction(thrownUnknownExceptionMethod_);
+    try
+    {
+        fixture.runAllTests();
+        stopAfterFailure++;
+    }
+    catch(...)
+    {
+        exceptionRethrown = true;
+    }
+    CHECK_TRUE(exceptionRethrown);
+    LONGS_EQUAL(1, fixture.getFailureCount());
+    fixture.assertPrintContains("Unexpected exception of unknown type was thrown");
+    LONGS_EQUAL(0, stopAfterFailure);
+    UtestShell::setRethrowExceptions(initialRethrowExceptions);
+}
+
+TEST(UtestShell, StandardExceptionIsRethrownIfEnabled)
+{
+    bool initialRethrowExceptions = UtestShell::isRethrowingExceptions();
+    bool exceptionRethrown = false;
+    stopAfterFailure = 0;
+    UtestShell::setRethrowExceptions(true);
+    shouldThrowException = true;
+    fixture.setTestFunction(thrownStandardExceptionMethod_);
+    try
+    {
+        fixture.runAllTests();
+        stopAfterFailure++;
+    }
+    catch(const std::exception &)
+    {
+        exceptionRethrown = true;
+    }
+    CHECK_TRUE(exceptionRethrown);
+    LONGS_EQUAL(1, fixture.getFailureCount());
+    fixture.assertPrintContains("Unexpected exception of type '");
+    fixture.assertPrintContains("runtime_error");
+    fixture.assertPrintContains("' was thrown: exception text");
+    LONGS_EQUAL(0, stopAfterFailure);
+    UtestShell::setRethrowExceptions(initialRethrowExceptions);
+}
+#endif
+
 TEST(UtestShell, veryVebose)
 {
     UtestShell shell("Group", "name", __FILE__, __LINE__);
@@ -259,8 +397,8 @@ TEST(UtestShell, TestDefaultCrashMethodInSeparateProcessTest)
     fixture.runAllTests();
     fixture.assertPrintContains("Failed in separate process - killed by signal");
 
-    /* Signal 11 usually happens, but with clang3.7 on Linux, it produced signal 4 */
-    CHECK(fixture.getOutput().contains("signal 11") || fixture.getOutput().contains("signal 4"));
+    /* Signal 11 usually happens, but with clang3.7 on Linux, it produced signal 4. Mac now produces signal 5 */
+    CHECK(fixture.getOutput().contains("signal 11") || fixture.getOutput().contains("signal 4") || fixture.getOutput().contains("signal 5"));
 }
 
 #endif

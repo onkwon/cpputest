@@ -59,6 +59,8 @@
 
 #include "CppUTest/PlatformSpecificFunctions.h"
 
+const std::nothrow_t std::nothrow;
+
 static jmp_buf test_exit_jmp_buf[10];
 static int jmp_buf_index = 0;
 
@@ -215,7 +217,14 @@ static const char* TimeStringImplementation()
 long (*GetPlatformSpecificTimeInMillis)() = TimeInMillisImplementation;
 const char* (*GetPlatformSpecificTimeString)() = TimeStringImplementation;
 
-int (*PlatformSpecificVSNprintf)(char *str, size_t size, const char* format, va_list va_args_list) = vsnprintf;
+static int BorlandVSNprintf(char *str, size_t size, const char* format, va_list args)
+{
+    int result = vsnprintf( str, size, format, args);
+    str[size-1] = 0;
+    return result;
+}
+
+int (*PlatformSpecificVSNprintf)(char *str, size_t size, const char* format, va_list va_args_list) = BorlandVSNprintf;
 
 static PlatformSpecificFile PlatformSpecificFOpenImplementation(const char* filename, const char* flag)
 {

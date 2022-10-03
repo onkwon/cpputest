@@ -28,11 +28,22 @@ include(CTest)
 
 include(CMakeDependentOption)
 option(CPPUTEST_STD_C_LIB_DISABLED "Disable the standard C library")
+
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles(
+  "int main(int argc, char ** argv) { throw 20; }"
+  CPPUTEST_HAVE_EXCEPTIONS
+)
+
+if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND (CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"))
+  set(is_clang_cl TRUE)
+endif()
+
 cmake_dependent_option(CPPUTEST_STD_CPP_LIB_DISABLED "Use the standard C++ library"
-  OFF "NOT CPPUTEST_STD_C_LIB_DISABLED" ON)
+  OFF "NOT CPPUTEST_STD_C_LIB_DISABLED;CPPUTEST_HAVE_EXCEPTIONS" ON)
 option(CPPUTEST_FLAGS "Use the CFLAGS/CXXFLAGS/LDFLAGS set by CppUTest" ON)
 cmake_dependent_option(CPPUTEST_MEM_LEAK_DETECTION_DISABLED "Enable memory leak detection"
-  OFF "NOT BORLAND;NOT CPPUTEST_STD_C_LIB_DISABLED" ON)
+  OFF "NOT BORLAND;NOT CPPUTEST_STD_C_LIB_DISABLED;NOT is_clang_cl" ON)
 option(CPPUTEST_EXTENSIONS "Use the CppUTest extension library" ON)
 
 include(CheckTypeSize)
@@ -52,15 +63,18 @@ cmake_dependent_option(CPPUTEST_BUILD_TESTING "Compile and make tests for CppUTe
   ${PROJECT_IS_TOP_LEVEL} "BUILD_TESTING" OFF)
 option(CPPUTEST_TESTS_DETAILED "Run each test separately instead of grouped?" OFF)
 cmake_dependent_option(CPPUTEST_TEST_DISCOVERY "Build time test discover"
-  ON "CPPUTEST_BUILD_TESTING;NOT IAR" OFF)
-
-option(CPPUTEST_EXAMPLES "Compile and make examples?" ${PROJECT_IS_TOP_LEVEL})
+  ON "CPPUTEST_BUILD_TESTING;CMAKE_CROSSCOMPILING_EMULATOR OR NOT CMAKE_CROSSCOMPILING" OFF)
+cmake_dependent_option(CPPUTEST_EXAMPLES "Compile and make examples?"
+  ${PROJECT_IS_TOP_LEVEL} "NOT CPPUTEST_STD_CPP_LIB_DISABLED" OFF)
 option(CPPUTEST_VERBOSE_CONFIG "Print configuration to stdout during generation" ${PROJECT_IS_TOP_LEVEL})
 
 cmake_dependent_option(CPPUTEST_LIBNAME_POSTFIX_BITSIZE "Add architecture bitsize (32/64) to the library name?"
   OFF "PROJECT_IS_TOP_LEVEL" OFF)
-cmake_dependent_option(CPPUTEST_LIBNAME_POSTFIX_DEBUG "Add indication of debug compilation to the library name?"
-  OFF "PROJECT_IS_TOP_LEVEL" OFF)
+
+include(CheckCXXSymbolExists)
+check_cxx_symbol_exists(fopen_s "stdio.h" CPPUTEST_HAVE_SECURE_STDLIB)
+cmake_dependent_option(CPPUTEST_USE_SECURE_STDLIB "Use MSVC safe functions"
+  ON "WIN32;CPPUTEST_HAVE_SECURE_STDLIB" OFF)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) # Don't change users' build type.
   # Multi-configuration generators don't have a single build type.
@@ -73,10 +87,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) # Don't change users' build type.
     message("No CMAKE_BUILD_TYPE set. Assigning: ${CMAKE_BUILD_TYPE}")
   endif()
 endif()
-
-# Pkg-config file
-include(FindPkgConfig)
-set(CppUTest_PKGCONFIG_FILE cpputest.pc)
 
 set( CppUTestLibName "CppUTest" )
 set( CppUTestExtLibName "CppUTestExt" )
@@ -104,7 +114,6 @@ include(GNUInstallDirs)
 add_subdirectory(src/CppUTest)
 
 # Check for symbols before setting a lot of stuff
-include(CheckCXXSymbolExists)
 include(CheckTypeSize)
 include(CheckStructHasMember)
 set(CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS})
@@ -113,14 +122,6 @@ check_cxx_symbol_exists(fork "unistd.h" CPPUTEST_HAVE_FORK)
 check_cxx_symbol_exists(waitpid "sys/wait.h" CPPUTEST_HAVE_WAITPID)
 check_cxx_symbol_exists(gettimeofday "sys/time.h" CPPUTEST_HAVE_GETTIMEOFDAY)
 check_cxx_symbol_exists(pthread_mutex_lock "pthread.h" CPPUTEST_HAVE_PTHREAD_MUTEX_LOCK)
-
-if(NOT DEFINED CPPUTEST_HAS_NAN)
-  check_cxx_symbol_exists(NAN "math.h" CPPUTEST_HAS_NAN)
-endif()
-
-if(NOT DEFINED CPPUTEST_HAS_INF)
-  check_cxx_symbol_exists(INFINITY "math.h" CPPUTEST_HAS_INF)
-endif()
 
 if (NOT IAR)
   check_cxx_symbol_exists(strdup "string.h" CPPUTEST_HAVE_STRDUP)
@@ -152,7 +153,7 @@ target_include_directories(${CppUTestLibName}
 )
 target_compile_definitions(${CppUTestLibName}
   PUBLIC
-    $<BUILD_INTERFACE:HAVE_CONFIG_H>
+    HAVE_CONFIG_H
 )
 
 if (CPPUTEST_EXTENSIONS)
@@ -175,6 +176,9 @@ if(PROJECT_IS_TOP_LEVEL)
   set (LIB_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
   set (INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+  # Pkg-config file
+  set(CppUTest_PKGCONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/cpputest.pc)
+
   # Pkg-config file.
   set (prefix "${CMAKE_INSTALL_PREFIX}")
   set (exec_prefix "\${prefix}")
@@ -182,15 +186,15 @@ if(PROJECT_IS_TOP_LEVEL)
   set (includedir "\${prefix}/${INCLUDE_INSTALL_DIR}")
   set (PACKAGE_VERSION "${PROJECT_VERSION}")
 
-  configure_file (cpputest.pc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/${CppUTest_PKGCONFIG_FILE} @ONLY)
-
-  install(FILES  ${CMAKE_CURRENT_BINARY_DIR}/${CppUTest_PKGCONFIG_FILE}
+  configure_file (cpputest.pc.in "${CppUTest_PKGCONFIG_FILE}" @ONLY)
+  install(
+    FILES "${CppUTest_PKGCONFIG_FILE}"
     DESTINATION ${LIB_INSTALL_DIR}/pkgconfig
   )
 
-  install(FILES  "${CMAKE_CURRENT_BINARY_DIR}/generated/CppUTestGeneratedConfig.h"
-    DESTINATION "${INCLUDE_INSTALL_DIR}/CppUTest"
+  install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/CppUTestGeneratedConfig.h"
+    DESTINATION "${INCLUDE_INSTALL_DIR}/generated"
   )
 
   # Try to include helper module
@@ -265,7 +269,6 @@ Features configured in CppUTest:
 
 Library name options:
     Add architecture bitsize (32/64)    ${CPPUTEST_LIBNAME_POSTFIX_BITSIZE}
-    Add debug compilation indicator     ${CPPUTEST_LIBNAME_POSTFIX_DEBUG}
 
 -------------------------------------------------------
 ")

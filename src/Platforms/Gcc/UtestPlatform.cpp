@@ -204,7 +204,7 @@ static long TimeInMillisImplementation()
     struct timeval tv;
     struct timezone tz;
     gettimeofday(&tv, &tz);
-    return (tv.tv_sec * 1000) + (long)((double)tv.tv_usec * 0.001);
+    return (long)((tv.tv_sec * 1000) + (time_t)((double)tv.tv_usec * 0.001));
 #else
     return 0;
 #endif
@@ -214,7 +214,7 @@ static const char* TimeStringImplementation()
 {
     time_t theTime = time(NULLPTR);
     static char dateTime[80];
-#if defined(_WIN32) && defined(MINGW_HAS_SECURE_API)
+#ifdef STDC_WANT_SECURE_LIB
     static struct tm lastlocaltime;
     localtime_s(&lastlocaltime, &theTime);
     struct tm *tmp = &lastlocaltime;
@@ -240,7 +240,7 @@ int (*PlatformSpecificVSNprintf)(char *str, size_t size, const char* format, va_
 
 static PlatformSpecificFile PlatformSpecificFOpenImplementation(const char* filename, const char* flag)
 {
-#if defined(_WIN32) && defined(MINGW_HAS_SECURE_API)
+#ifdef STDC_WANT_SECURE_LIB
   FILE* file;
    fopen_s(&file, filename, flag);
    return file;
@@ -264,11 +264,12 @@ static void PlatformSpecificFlushImplementation()
   fflush(stdout);
 }
 
+const PlatformSpecificFile PlatformSpecificStdOut = stdout;
+
 PlatformSpecificFile (*PlatformSpecificFOpen)(const char*, const char*) = PlatformSpecificFOpenImplementation;
 void (*PlatformSpecificFPuts)(const char*, PlatformSpecificFile) = PlatformSpecificFPutsImplementation;
 void (*PlatformSpecificFClose)(PlatformSpecificFile) = PlatformSpecificFCloseImplementation;
 
-int (*PlatformSpecificPutchar)(int) = putchar;
 void (*PlatformSpecificFlush)() = PlatformSpecificFlushImplementation;
 
 void* (*PlatformSpecificMalloc)(size_t size) = malloc;

@@ -62,7 +62,7 @@ extern int (*PlatformSpecificAtExit)(void(*func)(void));
 /* IO operations */
 typedef void* PlatformSpecificFile;
 
-extern const PlatformSpecificFile PlatformSpecificStdOut;
+extern PlatformSpecificFile PlatformSpecificStdOut;
 
 extern PlatformSpecificFile (*PlatformSpecificFOpen)(const char* filename, const char* flag);
 extern void (*PlatformSpecificFPuts)(const char* str, PlatformSpecificFile file);
@@ -88,6 +88,7 @@ extern int (*PlatformSpecificRand)(void);
 extern void (*PlatformSpecificMutexLock)(PlatformSpecificMutex mtx);
 extern void (*PlatformSpecificMutexUnlock)(PlatformSpecificMutex mtx);
 extern void (*PlatformSpecificMutexDestroy)(PlatformSpecificMutex mtx);
+extern void (*PlatformSpecificAbort)(void);
 
 #ifdef __cplusplus
 }

@@ -158,7 +158,7 @@ static void VisualCppFClose(PlatformSpecificFile file)
     fclose((FILE*)file);
 }
 
-const PlatformSpecificFile PlatformSpecificStdOut = stdout;
+PlatformSpecificFile PlatformSpecificStdOut = stdout;
 PlatformSpecificFile (*PlatformSpecificFOpen)(const char* filename, const char* flag) = VisualCppFOpen;
 void (*PlatformSpecificFPuts)(const char* str, PlatformSpecificFile file) = VisualCppFPuts;
 void (*PlatformSpecificFClose)(PlatformSpecificFile file) = VisualCppFClose;
@@ -231,3 +231,4 @@ PlatformSpecificMutex (*PlatformSpecificMutexCreate)(void) = VisualCppMutexCreat
 void (*PlatformSpecificMutexLock)(PlatformSpecificMutex) = VisualCppMutexLock;
 void (*PlatformSpecificMutexUnlock)(PlatformSpecificMutex) = VisualCppMutexUnlock;
 void (*PlatformSpecificMutexDestroy)(PlatformSpecificMutex) = VisualCppMutexDestroy;
+void (*PlatformSpecificAbort)(void) = abort;

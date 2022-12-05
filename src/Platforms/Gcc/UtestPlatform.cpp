@@ -264,7 +264,7 @@ static void PlatformSpecificFlushImplementation()
   fflush(stdout);
 }
 
-const PlatformSpecificFile PlatformSpecificStdOut = stdout;
+PlatformSpecificFile PlatformSpecificStdOut = stdout;
 
 PlatformSpecificFile (*PlatformSpecificFOpen)(const char*, const char*) = PlatformSpecificFOpenImplementation;
 void (*PlatformSpecificFPuts)(const char*, PlatformSpecificFile) = PlatformSpecificFPutsImplementation;
@@ -354,5 +354,6 @@ PlatformSpecificMutex (*PlatformSpecificMutexCreate)(void) = PThreadMutexCreate;
 void (*PlatformSpecificMutexLock)(PlatformSpecificMutex) = PThreadMutexLock;
 void (*PlatformSpecificMutexUnlock)(PlatformSpecificMutex) = PThreadMutexUnlock;
 void (*PlatformSpecificMutexDestroy)(PlatformSpecificMutex) = PThreadMutexDestroy;
+void (*PlatformSpecificAbort)(void) = abort;
 
 }

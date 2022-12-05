@@ -29,6 +29,13 @@ add_executable(CppUTestExtTests
     OrderedTestTest.cpp
 )
 
+if(CPPUTEST_STD_C_LIB_DISABLED)
+    target_sources(CppUTestExtTests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/../DummyUTestPlatform/DummyUTestPlatform.cpp
+    )
+endif()
+
 if(MINGW)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads)
@@ -37,13 +44,24 @@ if(MINGW)
     endif()
 endif()
 
-cpputest_normalize_test_output_location(CppUTestExtTests)
 target_link_libraries(CppUTestExtTests
     PRIVATE
         ${CppUTestLibName}
         ${CppUTestExtLibName}
 )
 
-if (CPPUTEST_TEST_DISCOVERY)
-    cpputest_buildtime_discover_tests(CppUTestExtTests)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
+    target_link_options(CppUTestExtTests
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:LINKER:-Map=$<TARGET_FILE:CppUTestExtTests>.map>
+            "$<$<CXX_COMPILER_ID:MSVC>:/MAP>"
+            $<$<CXX_COMPILER_ID:IAR>:"SHELL:--map $<TARGET_FILE:CppUTestExtTests>.map">
+    )
+endif()
+
+if(CPPUTEST_TEST_DISCOVERY)
+    include(CppUTest)
+    cpputest_discover_tests(CppUTestExtTests
+        DETAILED FALSE
+    )
 endif()

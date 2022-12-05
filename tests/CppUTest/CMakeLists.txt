@@ -36,10 +36,12 @@ add_executable(CppUTestTests
     TeamCityOutputTest.cpp
 )
 
-if (MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4723")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4723")
-endif (MSVC)
+if(CPPUTEST_STD_C_LIB_DISABLED)
+    target_sources(CppUTestTests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/../DummyUTestPlatform/DummyUTestPlatform.cpp
+    )
+endif()
 
 if(MINGW OR (${CMAKE_HOST_SYSTEM_NAME} MATCHES "OpenBSD"))
     set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -49,9 +51,18 @@ if(MINGW OR (${CMAKE_HOST_SYSTEM_NAME} MATCHES "OpenBSD"))
     endif()
 endif()
 
-cpputest_normalize_test_output_location(CppUTestTests)
 target_link_libraries(CppUTestTests PRIVATE ${CppUTestLibName})
 
-if (CPPUTEST_TEST_DISCOVERY)
-    cpputest_buildtime_discover_tests(CppUTestTests)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
+    target_link_options(CppUTestTests
+        PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:LINKER:-Map=$<TARGET_FILE:CppUTestTests>.map>
+            "$<$<CXX_COMPILER_ID:MSVC>:/MAP>"
+            $<$<CXX_COMPILER_ID:IAR>:"SHELL:--map $<TARGET_FILE:CppUTestTests>.map">
+    )
+endif()
+
+if(CPPUTEST_TEST_DISCOVERY)
+    include(CppUTest)
+    cpputest_discover_tests(CppUTestTests)
 endif()

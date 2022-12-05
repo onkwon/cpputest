@@ -138,7 +138,7 @@ static void DosFClose(PlatformSpecificFile file)
    fclose((FILE*)file);
 }
 
-const PlatformSpecificFile PlatformSpecificStdOut = stdout;
+PlatformSpecificFile PlatformSpecificStdOut = stdout;
 PlatformSpecificFile (*PlatformSpecificFOpen)(const char* filename, const char* flag) = DosFOpen;
 void (*PlatformSpecificFPuts)(const char* str, PlatformSpecificFile file) = DosFPuts;
 void (*PlatformSpecificFClose)(PlatformSpecificFile file) = DosFClose;
@@ -233,5 +233,12 @@ PlatformSpecificMutex (*PlatformSpecificMutexCreate)(void) = DummyMutexCreate;
 void (*PlatformSpecificMutexLock)(PlatformSpecificMutex) = DummyMutexLock;
 void (*PlatformSpecificMutexUnlock)(PlatformSpecificMutex) = DummyMutexUnlock;
 void (*PlatformSpecificMutexDestroy)(PlatformSpecificMutex) = DummyMutexDestroy;
+
+static void DosAbort()
+{
+    abort();
+}
+
+void (*PlatformSpecificAbort)(void) = DosAbort;
 
 }

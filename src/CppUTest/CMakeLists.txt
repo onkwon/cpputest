@@ -47,17 +47,22 @@ add_library(${CppUTestLibName}
         ${PROJECT_SOURCE_DIR}/include/CppUTest/SimpleMutex.h
 )
 
-#[[Set CPP_PLATFORM in a parent CMakeLists.txt if reusing one of the provided platforms, else supply the missing definitions]]
-if (CPP_PLATFORM)
+#[[Set CPPUTEST_PLATFORM in a parent CMakeLists.txt if reusing one of the provided platforms, else supply the missing definitions]]
+if(CPPUTEST_PLATFORM)
     target_sources(${CppUTestLibName}
         PRIVATE
-            ${CMAKE_CURRENT_LIST_DIR}/../Platforms/${CPP_PLATFORM}/UtestPlatform.cpp
+            ${CMAKE_CURRENT_LIST_DIR}/../Platforms/${CPPUTEST_PLATFORM}/UtestPlatform.cpp
     )
     target_include_directories(${CppUTestLibName}
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../include/Platforms/${CPP_PLATFORM}>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../include/Platforms/${CPPUTEST_PLATFORM}>
     )
-endif(CPP_PLATFORM)
+endif()
+
+if (MINGW)
+    include(CheckStructHasMember)
+    check_struct_has_member("struct timespec" tv_sec time.h HAVE_STRUCT_TIMESPEC LANGUAGE CXX)
+endif()
 
 #[[Arrange for the include directory to be added to the include paths of any CMake target depending on CppUTest.]]
 target_include_directories(${CppUTestLibName}
@@ -69,6 +74,8 @@ target_include_directories(${CppUTestLibName}
 target_compile_definitions(${CppUTestLibName}
     PRIVATE
         $<$<BOOL:${CPPUTEST_USE_SECURE_STDLIB}>:STDC_WANT_SECURE_LIB>
+        # Apply workaround for MinGW timespec redefinition (pthread.h / time.h).
+        $<$<BOOL:${HAVE_STRUCT_TIMESPEC}>:_TIMESPEC_DEFINED>
 )
 
 if (WIN32)
@@ -77,6 +84,22 @@ endif (WIN32)
 
 add_library(CppUTest::CppUTest ALIAS ${CppUTestLibName})
 
+if(NOT CPPUTEST_MEM_LEAK_DETECTION_DISABLED)
+    if(MSVC)
+        set(force_include "/FI")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "IAR")
+        set(force_include "--preinclude ")
+    else()
+        set(force_include "-include")
+    endif()
+    target_compile_options(${CppUTestLibName}
+        PUBLIC
+            "$<$<COMPILE_LANGUAGE:C,CXX>:${force_include}CppUTest/MemoryLeakDetectorMallocMacros.h>"
+            "$<$<COMPILE_LANGUAGE:CXX>:${force_include}CppUTest/MemoryLeakDetectorNewMacros.h>"
+    )
+endif()
+
+# Installation
 if(PROJECT_IS_TOP_LEVEL)
     install(
         TARGETS ${CppUTestLibName}

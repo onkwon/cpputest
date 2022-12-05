@@ -155,7 +155,7 @@ extern "C"
     {
     }
 
-    const PlatformSpecificFile PlatformSpecificStdOut = stdout;
+    PlatformSpecificFile PlatformSpecificStdOut = stdout;
     PlatformSpecificFile (*PlatformSpecificFOpen)(const char*, const char*) = PlatformSpecificFOpenImplementation;
     void (*PlatformSpecificFPuts)(const char*, PlatformSpecificFile) = PlatformSpecificFPutsImplementation;
     void (*PlatformSpecificFClose)(PlatformSpecificFile) = PlatformSpecificFCloseImplementation;
@@ -216,5 +216,6 @@ extern "C"
     void (*PlatformSpecificMutexLock)(PlatformSpecificMutex) = DummyMutexLock;
     void (*PlatformSpecificMutexUnlock)(PlatformSpecificMutex) = DummyMutexUnlock;
     void (*PlatformSpecificMutexDestroy)(PlatformSpecificMutex) = DummyMutexDestroy;
+    void (*PlatformSpecificAbort)(void) = abort;
 
 }

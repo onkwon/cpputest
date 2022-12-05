@@ -141,7 +141,7 @@ TEST(TestFailure, LongsEqualFailure)
 
 TEST(TestFailure, LongLongsEqualFailure)
 {
-#ifdef CPPUTEST_USE_LONG_LONG
+#if CPPUTEST_USE_LONG_LONG
     LongLongsEqualFailure f(test, failFileName, failLineNumber, 1, 2, "");
     FAILURE_EQUAL("expected <1 (0x1)>\n\tbut was  <2 (0x2)>", f);
 #else
@@ -153,7 +153,7 @@ TEST(TestFailure, LongLongsEqualFailure)
 
 TEST(TestFailure, UnsignedLongLongsEqualFailure)
 {
-#ifdef CPPUTEST_USE_LONG_LONG
+#if CPPUTEST_USE_LONG_LONG
     UnsignedLongLongsEqualFailure f(test, failFileName, failLineNumber, 1, 2, "");
     FAILURE_EQUAL("expected <1 (0x1)>\n\tbut was  <2 (0x2)>", f);
 #else
@@ -401,7 +401,7 @@ TEST(TestFailure, BitsEqualChar)
     BitsEqualFailure f(test, failFileName, failLineNumber, 0x01, 0x03, 0xFF, sizeof(char), "");
     FAILURE_EQUAL("expected <xxxxxxxx 00000001>\n\tbut was  <xxxxxxxx 00000011>", f);
 }
-#else
+#elif (CPPUTEST_CHAR_BIT == 8)
 TEST(TestFailure, BitsEqualChar)
 {
     BitsEqualFailure f(test, failFileName, failLineNumber, 0x01, 0x03, 0xFF, sizeof(char), "");
@@ -427,19 +427,25 @@ TEST(TestFailure, FeatureUnsupported)
     FAILURE_EQUAL("The feature \"SOME_FEATURE\" is not supported in this environment or with the feature set selected when building the library.", f);
 }
 
-#if CPPUTEST_USE_STD_CPP_LIB
+#if CPPUTEST_HAVE_EXCEPTIONS
 TEST(TestFailure, UnexpectedExceptionFailure_UnknownException)
 {
     UnexpectedExceptionFailure f(test);
     FAILURE_EQUAL("Unexpected exception of unknown type was thrown.", f);
 }
+#endif
 
+#if CPPUTEST_HAVE_EXCEPTIONS && CPPUTEST_USE_STD_CPP_LIB
 TEST(TestFailure, UnexpectedExceptionFailure_StandardException)
 {
     std::runtime_error e("Some error");
     UnexpectedExceptionFailure f(test, e);
+#if CPPUTEST_HAVE_RTTI
     STRCMP_CONTAINS("Unexpected exception of type '", f.getMessage().asCharString());
     STRCMP_CONTAINS("runtime_error", f.getMessage().asCharString());
     STRCMP_CONTAINS("' was thrown: Some error", f.getMessage().asCharString());
+#else
+    FAILURE_EQUAL("Unexpected exception of unknown type was thrown.", f);
+#endif
 }
 #endif

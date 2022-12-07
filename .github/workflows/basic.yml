@@ -4,9 +4,12 @@ name: Basic builds
 "on":
   push:
   pull_request:
+  schedule:
+    - cron: '0 5 * * 3'
 
 jobs:
   clang-format:
+    name: Clang Format
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,26 +19,76 @@ jobs:
           clangFormatVersion: 14
           source: examples
 
+  codeql:
+    runs-on: ubuntu-20.04
+    env:
+      CC: gcc-10
+      CXX: g++-10
+    name: "CodeQL"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+      - name: CodeQL Initialization
+        uses: github/codeql-action/init@v2
+        with:
+          languages: cpp
+          queries: +security-and-quality
+      - name: Build
+        run: |
+          mkdir _build && cd _build
+          cmake -DCMAKE_CXX_STANDARD=17 ..
+          make -j2
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
   automake:
     strategy:
       matrix:
         include:
-          # Mac OSX
-          - os: macos-latest
+          - name: Mac GNU
+            os: macos-latest
             cc: gcc
             cxx: g++
-          - os: macos-latest
+            target: tdd
+          - name: Mac Clang
+            os: macos-latest
             cc: clang
             cxx: clang++
-          # Linux
-          - os: ubuntu-latest
+            target: tdd
+          - name: Linux GNU
+            os: ubuntu-latest
             cc: gcc
             cxx: g++
-          - os: ubuntu-latest
+            target: tdd
+          - name: Linux Clang
+            os: ubuntu-latest
             cc: clang
             cxx: clang++
+            target: tdd
+          - name: GTest 1.5
+            os: ubuntu-20.04
+            target: check_gtest15
+          - name: GTest 1.6
+            os: ubuntu-20.04
+            target: check_gtest16
+          - name: GTest 1.7
+            os: ubuntu-20.04
+            target: check_gtest17
+          - name: GTest 1.8
+            os: ubuntu-20.04
+            target: check_gtest18
+          - name: Disable long long
+            os: ubuntu-latest
+            configure_args: --disable-longlong
+            target: tdd
     runs-on: ${{ matrix.os }}
+    name: Automake ${{ matrix.name }}
     steps:
+      - name: Install Python 2
+        uses: actions/setup-python@v4
+        with:
+          python-version: "2.7"
+        if: ${{ startswith(matrix.name, 'GTest') }}
       - name: Checkout
         uses: actions/checkout@main
       - run: brew install automake
@@ -47,9 +100,9 @@ jobs:
       - name: Configure
         run: |
           autoreconf -i .
-          ./configure
+          ./configure ${{ matrix.configure_args }}
       - name: Build and test
-        run: make tdd
+        run: make ${{ matrix.target }}
 
   cmake:
     strategy:
@@ -70,6 +123,9 @@ jobs:
             cmake_args: -DCMAKE_CXX_STANDARD=17
             preset: ClangCL
             ctest_args: -C Debug
+          - name: Clang-Tidy
+            os: ubuntu-latest
+            preset: clang-tidy
           - name: Linux Clang 98
             os: ubuntu-latest
             cmake_args: -DCMAKE_CXX_STANDARD=98
@@ -137,6 +193,15 @@ jobs:
             os: ubuntu-latest
             preset: coverage
             apt_packages: lcov
+          - name: Google Test
+            os: ubuntu-20.04
+            cmake_args: -DCMAKE_CXX_STANDARD=98
+            preset: gtest
+            ctest_args: -C Debug
+            apt_packages: python2 ninja-build
+          - name: Address Sanitizer
+            os: ubuntu-latest
+            preset: asan
           - name: GCC ARM embedded
             os: ubuntu-latest
             preset: arm-embedded
@@ -163,7 +228,7 @@ jobs:
           - name: Cygwin
             os: windows-latest
             preset: GNU
-    name: ${{ matrix.name }}
+    name: CMake ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     steps:
       ### SETUP
@@ -177,7 +242,7 @@ jobs:
       - name: Install QEMU
         # The version in the ubuntu repositories (6.2) is broken.
         run: |
-          wget -nv http://ftp.de.debian.org/debian/pool/main/q/qemu/qemu-user-static_7.1+dfsg-2_amd64.deb -O qemu.deb
+          wget -nv http://ftp.de.debian.org/debian/pool/main/q/qemu/qemu-user-static_7.1+dfsg-2+b3_amd64.deb -O qemu.deb
           sudo dpkg --install qemu.deb
           rm -f qemu.deb
         if: ${{ matrix.name == 'GCC ARM embedded' }}
@@ -211,7 +276,11 @@ jobs:
       - name: Build
         run: cmake --build cpputest_build --verbose -j
       - name: Test
-        run: ctest --test-dir cpputest_build ${{ matrix.ctest_args }}
+        run: >
+          ctest
+          --test-dir cpputest_build
+          ${{ matrix.ctest_args }}
+          --output-on-failure
 
       # POST PROCESSING
 
@@ -241,3 +310,95 @@ jobs:
           path-to-lcov: lcov.info
           github-token: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ matrix.name == 'Coverage' }}
+
+  test_report:
+    name: JUnit Test Report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: cmake --preset=defaults -DCPPUTEST_JUNIT_REPORT=TRUE
+      - run: cmake --build cpputest_build -j
+      - run: ctest --test-dir cpputest_build
+      - uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: test-results
+          path: "cpputest_build/**/cpputest_*.xml"
+
+  make_dos:
+    name: Make OpenWatcom DOS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+      - name: Install tools
+        run: |
+          sudo apt-get install -y dosbox
+          git clone https://github.com/cpputest/watcom-compiler.git watcom
+          echo "WATCOM=$GITHUB_WORKSPACE/watcom" >> $GITHUB_ENV
+          echo "CC=wcl" >> $GITHUB_ENV
+          echo "CXX=wcl" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/watcom/binl" >> $GITHUB_PATH
+          echo "CPPUTEST_HOME=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+      - name: Build
+        run: |
+          $CC --version
+          make -f $CPPUTEST_HOME/platforms/Dos/Makefile clean
+          make -f $CPPUTEST_HOME/platforms/Dos/Makefile
+      - name: Test
+        env:
+          TERM: linux
+        run: $CPPUTEST_HOME/platforms/Dos/alltests.sh
+
+  cmake_msys:
+    name: CMake MSYS
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      LDFLAGS: -static
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >
+            git
+            mingw-w64-x86_64-cc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+      - name: Configure
+        run: cmake --preset=GNU
+      - name: Build
+        run: cmake --build cpputest_build -j
+      - name: Test
+        run: ctest --test-dir cpputest_build --output-on-failure
+
+  autotools_msys:
+    name: Automake MSYS
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      LDFLAGS: -static
+    steps:
+      - uses: actions/checkout@v3
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >
+            git
+            mingw-w64-x86_64-autotools
+            mingw-w64-x86_64-cc
+            mingw-w64-x86_64-make
+      - name: Configure
+        run: |
+          autoreconf -i .
+          ./configure
+      - name: Build and test
+        run: make tdd

@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -137,8 +137,11 @@ extern "C" {
 
 static const NormalTestTerminator normalTestTerminator = NormalTestTerminator();
 static const CrashingTestTerminator crashingTestTerminator = CrashingTestTerminator();
+static const TestTerminatorWithoutExceptions normalTestTerminatorWithoutExceptions;
+static const CrashingTestTerminatorWithoutExceptions crashingTestTerminatorWithoutExceptions;
 
 const TestTerminator *UtestShell::currentTestTerminator_ = &normalTestTerminator;
+const TestTerminator *UtestShell::currentTestTerminatorWithoutExceptions_ = &normalTestTerminatorWithoutExceptions;
 
 bool UtestShell::rethrowExceptions_ = false;
 
@@ -605,14 +608,21 @@ const TestTerminator &UtestShell::getCurrentTestTerminator()
     return *currentTestTerminator_;
 }
 
+const TestTerminator &UtestShell::getCurrentTestTerminatorWithoutExceptions()
+{
+    return *currentTestTerminatorWithoutExceptions_;
+}
+
 void UtestShell::setCrashOnFail()
 {
     currentTestTerminator_ = &crashingTestTerminator;
+    currentTestTerminatorWithoutExceptions_ = &crashingTestTerminatorWithoutExceptions;
 }
 
 void UtestShell::restoreDefaultTestTerminator()
 {
     currentTestTerminator_ = &normalTestTerminator;
+    currentTestTerminatorWithoutExceptions_ = &normalTestTerminatorWithoutExceptions;
 }
 
 void UtestShell::setRethrowExceptions(bool rethrowExceptions)
@@ -771,6 +781,16 @@ void CrashingTestTerminator::exitCurrentTest() const
 }
 
 CrashingTestTerminator::~CrashingTestTerminator()
+{
+}
+
+void CrashingTestTerminatorWithoutExceptions::exitCurrentTest() const
+{
+    UtestShell::crash();
+    TestTerminatorWithoutExceptions::exitCurrentTest();
+}
+
+CrashingTestTerminatorWithoutExceptions::~CrashingTestTerminatorWithoutExceptions()
 {
 }
 

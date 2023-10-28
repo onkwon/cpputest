@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -34,7 +34,7 @@
 
 typedef void (*cpputest_cpp_function_pointer)();  /* Cl2000 requires cast to C++ function */
 
-class MockFailureReporterTestTerminatorForInCOnlyCode : public TestTerminatorWithoutExceptions
+class MockFailureReporterTestTerminatorForInCOnlyCode : public TestTerminator
 {
 public:
     MockFailureReporterTestTerminatorForInCOnlyCode(bool crashOnFailure) : crashOnFailure_(crashOnFailure)
@@ -46,7 +46,7 @@ public:
         if (crashOnFailure_)
             UT_CRASH();
 
-        TestTerminatorWithoutExceptions::exitCurrentTest();
+        UtestShell::getCurrentTestTerminatorWithoutExceptions().exitCurrentTest();
     } // LCOV_EXCL_LINE
     // LCOV_EXCL_START
     virtual ~MockFailureReporterTestTerminatorForInCOnlyCode() _destructor_override

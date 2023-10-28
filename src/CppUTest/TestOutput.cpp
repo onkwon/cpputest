@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -398,6 +398,12 @@ void CompositeTestOutput::setProgressIndicator(const char* indicator)
 {
   if (outputOne_) outputOne_->setProgressIndicator(indicator);
   if (outputTwo_) outputTwo_->setProgressIndicator(indicator);
+}
+
+void CompositeTestOutput::printVeryVerbose(const char* str)
+{
+  if (outputOne_) outputOne_->printVeryVerbose(str);
+  if (outputTwo_) outputTwo_->printVeryVerbose(str);
 }
 
 void CompositeTestOutput::flush()

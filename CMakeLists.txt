@@ -45,14 +45,14 @@ cmake_dependent_option(CPPUTEST_USE_LONG_LONG "Support long long"
 
 cmake_dependent_option(CPPUTEST_BUILD_TESTING "Compile and make tests for CppUTest"
   ${PROJECT_IS_TOP_LEVEL} "BUILD_TESTING" OFF)
+cmake_dependent_option(CPPUTEST_SPLIT_TESTS "Split tests into small executables"
+  OFF "CPPUTEST_BUILD_TESTING" OFF)
 cmake_dependent_option(CPPUTEST_TEST_DISCOVERY "Build time test discover"
   ON "CPPUTEST_BUILD_TESTING;CMAKE_CROSSCOMPILING_EMULATOR OR NOT CMAKE_CROSSCOMPILING" OFF)
 cmake_dependent_option(CPPUTEST_TEST_GTEST "Test GoogleTest integration"
   OFF "CPPUTEST_BUILD_TESTING" OFF)
 cmake_dependent_option(CPPUTEST_EXAMPLES "Compile and make examples?"
   ${PROJECT_IS_TOP_LEVEL} "CPPUTEST_EXTENSIONS;NOT CPPUTEST_STD_CPP_LIB_DISABLED" OFF)
-cmake_dependent_option(CPPUTEST_LIBNAME_POSTFIX_BITSIZE "Add architecture bitsize (32/64) to the library name?"
-  OFF "PROJECT_IS_TOP_LEVEL" OFF)
 
 if(NOT DEFINED CPPUTEST_PLATFORM)
   if(DEFINED CPP_PLATFORM)
@@ -92,19 +92,6 @@ check_cxx_symbol_exists(fopen_s "stdio.h" CPPUTEST_HAVE_SECURE_STDLIB)
 cmake_dependent_option(CPPUTEST_USE_SECURE_STDLIB "Use MSVC safe functions"
   ON "WIN32;CPPUTEST_HAVE_SECURE_STDLIB" OFF)
 
-set( CppUTestLibName "CppUTest" )
-set( CppUTestExtLibName "CppUTestExt" )
-
-if(CPPUTEST_LIBNAME_POSTFIX_BITSIZE)
-  if( "${CMAKE_SIZEOF_VOID_P}" STREQUAL "8" )
-      set( CppUTestLibName "${CppUTestLibName}64" )
-      set( CppUTestExtLibName "${CppUTestExtLibName}64" )
-  elseif( "${CMAKE_SIZEOF_VOID_P}" STREQUAL "4" )
-      set( CppUTestLibName "${CppUTestLibName}32" )
-      set( CppUTestExtLibName "${CppUTestExtLibName}32" )
-  endif()
-endif()
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 if(NOT PROJECT_IS_TOP_LEVEL)
   set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
@@ -139,11 +126,11 @@ configure_file (
 
 add_subdirectory(src)
 
-target_include_directories(${CppUTestLibName}
+target_include_directories(CppUTest
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
 )
-target_compile_definitions(${CppUTestLibName}
+target_compile_definitions(CppUTest
   PUBLIC
     HAVE_CONFIG_H
 )

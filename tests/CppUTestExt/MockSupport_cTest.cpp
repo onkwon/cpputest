@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -683,6 +683,40 @@ TEST_ORDERED(MockSupport_c, nextTestShouldNotCrashOnFailure, 22)
 
     CHECK_FALSE(cpputestHasCrashed);
 
+    UtestShell::resetCrashMethod();
+}
+
+TEST(MockSupport_c, FailWillNotCrashIfNotEnabled)
+{
+    cpputestHasCrashed = false;
+    TestTestingFixture fixture;
+    UtestShell::setCrashMethod(crashMethod);
+
+    fixture.setTestFunction(failedCallToMockC);
+
+    fixture.runAllTests();
+
+    CHECK_FALSE(cpputestHasCrashed);
+    LONGS_EQUAL(1, fixture.getFailureCount());
+
+    UtestShell::resetCrashMethod();
+}
+
+TEST(MockSupport_c, FailWillCrashIfEnabled)
+{
+    cpputestHasCrashed = false;
+    TestTestingFixture fixture;
+    UtestShell::setCrashOnFail();
+    UtestShell::setCrashMethod(crashMethod);
+
+    fixture.setTestFunction(failedCallToMockC);
+
+    fixture.runAllTests();
+
+    CHECK(cpputestHasCrashed);
+    LONGS_EQUAL(1, fixture.getFailureCount());
+
+    UtestShell::restoreDefaultTestTerminator();
     UtestShell::resetCrashMethod();
 }
 

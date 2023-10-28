@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -469,4 +469,12 @@ TEST(CompositeTestOutput, deletePreviousInstanceWhenSettingNew)
   compositeOutput.setOutputTwo(new CompositeTestOutput);
 
   // CHECK NO MEMORY LEAKS
+}
+
+TEST(CompositeTestOutput, printVeryVerbose)
+{
+  compositeOutput.verbose(TestOutput::level_veryVerbose);
+  compositeOutput.printVeryVerbose("very-verbose");
+  STRCMP_EQUAL("very-verbose", output1->getOutput().asCharString());
+  STRCMP_EQUAL("very-verbose", output2->getOutput().asCharString());
 }

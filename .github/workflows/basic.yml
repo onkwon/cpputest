@@ -4,8 +4,6 @@ name: Basic builds
 "on":
   push:
   pull_request:
-  schedule:
-    - cron: '0 5 * * 3'
 
 jobs:
   clang-format:
@@ -41,7 +39,7 @@ jobs:
       - name: CodeQL Analysis
         uses: github/codeql-action/analyze@v2
 
-  automake:
+  autotools:
     strategy:
       matrix:
         include:
@@ -49,40 +47,55 @@ jobs:
             os: macos-latest
             cc: gcc
             cxx: g++
-            target: tdd
+            make_args: tdd
           - name: Mac Clang
             os: macos-latest
             cc: clang
             cxx: clang++
-            target: tdd
+            make_args: tdd
           - name: Linux GNU
             os: ubuntu-latest
             cc: gcc
             cxx: g++
-            target: tdd
+            make_args: tdd
           - name: Linux Clang
             os: ubuntu-latest
             cc: clang
             cxx: clang++
-            target: tdd
+            make_args: tdd
           - name: GTest 1.5
             os: ubuntu-20.04
-            target: check_gtest15
+            make_args: check_gtest15
           - name: GTest 1.6
             os: ubuntu-20.04
-            target: check_gtest16
+            make_args: check_gtest16
           - name: GTest 1.7
             os: ubuntu-20.04
-            target: check_gtest17
+            make_args: check_gtest17
           - name: GTest 1.8
             os: ubuntu-20.04
-            target: check_gtest18
+            make_args: check_gtest18
+          - name: GTest 1.10
+            os: ubuntu-20.04
+            make_args: check_gtest110
+          - name: GTest 1.11
+            os: ubuntu-20.04
+            make_args: check_gtest111
+          - name: GTest 1.12
+            os: ubuntu-20.04
+            make_args: check_gtest112
           - name: Disable long long
             os: ubuntu-latest
             configure_args: --disable-longlong
-            target: tdd
+            make_args: tdd
+          - name: Distribution
+            os: ubuntu-latest
+            make_args: dist dist-zip VERSION=latest
+          - name: Install
+            os: ubuntu-latest
+            make_args: DESTDIR=install_autotools install
     runs-on: ${{ matrix.os }}
-    name: Automake ${{ matrix.name }}
+    name: Autotools ${{ matrix.name }}
     steps:
       - name: Install Python 2
         uses: actions/setup-python@v4
@@ -102,7 +115,7 @@ jobs:
           autoreconf -i .
           ./configure ${{ matrix.configure_args }}
       - name: Build and test
-        run: make ${{ matrix.target }}
+        run: make ${{ matrix.make_args }}
 
   cmake:
     strategy:
@@ -173,6 +186,20 @@ jobs:
             os: ubuntu-latest
             cmake_args: -DCMAKE_CXX_STANDARD=20
             preset: GNU
+          - name: GCC-10
+            os: ubuntu-20.04
+            cmake_args: >
+              -DCMAKE_C_COMPILER=gcc-10
+              -DCMAKE_CXX_COMPILER=g++-10
+              -DCMAKE_CXX_STANDARD=17
+            preset: GNU
+          - name: Clang-11
+            os: ubuntu-20.04
+            cmake_args: >
+              -DCMAKE_C_COMPILER=clang-11
+              -DCMAKE_CXX_COMPILER=clang++-11
+              -DCMAKE_CXX_STANDARD=17
+            preset: Clang
           - name: MinGW
             os: ubuntu-latest
             preset: MinGW
@@ -209,6 +236,10 @@ jobs:
             os: macos-latest
             preset: defaults
             install: true
+          - name: Apple Clang 14
+            os: macos-latest
+            cmake_args: -DCMAKE_CXX_STANDARD=14
+            preset: Clang
           - name: Apple Clang 17
             os: macos-latest
             cmake_args: -DCMAKE_CXX_STANDARD=17
@@ -234,17 +265,12 @@ jobs:
       ### SETUP
 
       - name: Install packages
-        run: sudo apt install -y ${{ matrix.apt_packages }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_packages }}
         if: ${{ matrix.apt_packages }}
 
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
-        if: ${{ matrix.name == 'GCC ARM embedded' }}
-      - name: Install QEMU
-        # The version in the ubuntu repositories (6.2) is broken.
-        run: |
-          wget -nv http://ftp.de.debian.org/debian/pool/main/q/qemu/qemu-user-static_7.1+dfsg-2+b3_amd64.deb -O qemu.deb
-          sudo dpkg --install qemu.deb
-          rm -f qemu.deb
         if: ${{ matrix.name == 'GCC ARM embedded' }}
 
       - name: Install OpenWatcom
@@ -275,6 +301,11 @@ jobs:
         run: cmake --preset ${{ matrix.preset }} ${{ matrix.cmake_args }}
       - name: Build
         run: cmake --build cpputest_build --verbose -j
+      - name: Save map files
+        uses: actions/upload-artifact@v3
+        with:
+          name: "${{ matrix.name }} map files"
+          path: cpputest_build/**/*.map
       - name: Test
         run: >
           ctest
@@ -325,30 +356,64 @@ jobs:
           name: test-results
           path: "cpputest_build/**/cpputest_*.xml"
 
+  make:
+    strategy:
+      matrix:
+        include:
+          - name: Defaults
+            make_target: test_defaults
+          - name: STDC++ disabled
+            make_target: test_disable_std_cpp
+          - name: Memory Leak Detection disabled
+            make_target: test_disable_memory_leak_detection
+          - name: Disable Leak Detection and STD C++
+            make_target: test_disable_std_cpp_and_leak_detection
+          - name: debug disabled
+            make_target: test_disable_debug
+          - name: overridden CXXFLAGS and CFLAGS and CPPFLAGS
+            make_target: test_override_flags
+          - name: without Standard C library includes
+            make_target: test_disable_std_c
+          - name: different TARGET_PLATFORM
+            make_target: test_target_platform
+          - name: override flags and disable memory leak and STDC++
+            make_target: test_override_and_disable
+          - name: Examples
+            make_target: test_examples
+          - name: JUnit Output
+            make_target: test_junit_output
+          # - name: gcov
+          #   make_target: test_gcov
+          - name: VPATH usage
+            make_target: test_vpath
+          - name: VPATH Install
+            make_target: test_vpath_install
+    name: Make ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Build
+        run: make -f Makefile_using_MakefileWorker ${{ matrix.make_target }}
+
   make_dos:
     name: Make OpenWatcom DOS
     runs-on: ubuntu-latest
+    env:
+      WATCOM: "./watcom"
+      TERM: linux
     steps:
       - name: Checkout
         uses: actions/checkout@main
       - name: Install tools
         run: |
+          sudo apt-get update
           sudo apt-get install -y dosbox
-          git clone https://github.com/cpputest/watcom-compiler.git watcom
-          echo "WATCOM=$GITHUB_WORKSPACE/watcom" >> $GITHUB_ENV
-          echo "CC=wcl" >> $GITHUB_ENV
-          echo "CXX=wcl" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/watcom/binl" >> $GITHUB_PATH
-          echo "CPPUTEST_HOME=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          git clone https://github.com/cpputest/watcom-compiler.git $WATCOM
+          echo "$WATCOM/binl" >> $GITHUB_PATH
       - name: Build
-        run: |
-          $CC --version
-          make -f $CPPUTEST_HOME/platforms/Dos/Makefile clean
-          make -f $CPPUTEST_HOME/platforms/Dos/Makefile
+        run: make -f platforms/Dos/Makefile
       - name: Test
-        env:
-          TERM: linux
-        run: $CPPUTEST_HOME/platforms/Dos/alltests.sh
+        run: make -f platforms/Dos/Makefile test
 
   cmake_msys:
     name: CMake MSYS
@@ -378,7 +443,7 @@ jobs:
         run: ctest --test-dir cpputest_build --output-on-failure
 
   autotools_msys:
-    name: Automake MSYS
+    name: Autotools MSYS
     runs-on: windows-latest
     defaults:
       run:
@@ -402,3 +467,28 @@ jobs:
           ./configure
       - name: Build and test
         run: make tdd
+
+  Docker:
+    strategy:
+      matrix:
+        image: ["ubuntu", "dos"]
+    runs-on: ubuntu-latest
+    name: Docker ${{ matrix.image }}
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        env:
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        if: ${{ env.TOKEN != '' }}
+      - name: Build
+        uses: docker/build-push-action@v3
+        with:
+          file: docker/Dockerfile.${{ matrix.image }}
+          tags: cpputest/${{ matrix.image }}

@@ -13,7 +13,7 @@
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE EARLIER MENTIONED AUTHORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL <copyright holder> BE LIABLE FOR ANY
@@ -71,20 +71,20 @@ TEST(UtestShell, compareDoubles)
 #ifdef NAN
 TEST(UtestShell, compareDoublesNaN)
 {
-    CHECK(!doubles_equal(NAN, 1.001, 0.01));
-    CHECK(!doubles_equal(1.0, NAN, 0.01));
-    CHECK(!doubles_equal(1.0, 1.001, NAN));
+    CHECK(!doubles_equal((double)NAN, 1.001, 0.01));
+    CHECK(!doubles_equal(1.0, (double)NAN, 0.01));
+    CHECK(!doubles_equal(1.0, 1.001, (double)NAN));
 }
 #endif
 
 #ifdef INFINITY
 TEST(UtestShell, compareDoublesInf)
 {
-    CHECK(!doubles_equal(INFINITY, 1.0, 0.01));
-    CHECK(!doubles_equal(1.0, INFINITY, 0.01));
-    CHECK(doubles_equal(1.0, -1.0, INFINITY));
-    CHECK(doubles_equal(INFINITY, INFINITY, 0.01));
-    CHECK(doubles_equal(INFINITY, INFINITY, INFINITY));
+    CHECK(!doubles_equal((double)INFINITY, 1.0, 0.01));
+    CHECK(!doubles_equal(1.0, (double)INFINITY, 0.01));
+    CHECK(doubles_equal(1.0, -1.0, (double)INFINITY));
+    CHECK(doubles_equal((double)INFINITY, (double)INFINITY, 0.01));
+    CHECK(doubles_equal((double)INFINITY, (double)INFINITY, (double)INFINITY));
 }
 #endif
 

@@ -29,7 +29,17 @@
 #define CPPUTESTCONFIG_H_
 
 #ifndef CPPUTEST_USE_OWN_CONFIGURATION
-#include "CppUTestGeneratedConfig.h"
+    // The autotools generated header uses reserved names in macros
+    #ifdef __clang__
+        #pragma clang diagnostic push
+        #if __clang_major__ >= 13
+            #pragma clang diagnostic ignored "-Wreserved-identifier"
+        #endif
+    #endif
+    #include "CppUTestGeneratedConfig.h"
+    #ifdef __clang__
+        #pragma clang diagnostic pop
+    #endif
 #endif
 
 /*
@@ -39,13 +49,6 @@
  * from other files and resolve dependencies in #includes.
  *
  */
-
-#ifdef __clang__
- #pragma clang diagnostic push
- #if (__clang_major__ == 3 && __clang_minor__ >= 6) || __clang_major__ >= 4
-  #pragma clang diagnostic ignored "-Wreserved-id-macro"
- #endif
-#endif
 
 /*
  * Lib C dependencies that are currently still left:
@@ -100,12 +103,14 @@
  * This is needed for compiling with clang, without breaking other compilers.
  */
 #ifndef __has_attribute
-  #define __has_attribute(x) 0
+  #define CPPUTEST_HAS_ATTRIBUTE(x) 0
+#else
+  #define CPPUTEST_HAS_ATTRIBUTE(x) __has_attribute(x)
 #endif
 
 #if defined (__cplusplus) && __cplusplus >= 201103L
    #define CPPUTEST_NORETURN [[noreturn]]
-#elif __has_attribute(noreturn)
+#elif CPPUTEST_HAS_ATTRIBUTE(noreturn)
    #define CPPUTEST_NORETURN __attribute__((noreturn))
 #else
    #define CPPUTEST_NORETURN
@@ -117,7 +122,7 @@
 #define CPPUTEST_CHECK_FORMAT_TYPE printf
 #endif
 
-#if __has_attribute(format)
+#if CPPUTEST_HAS_ATTRIBUTE(format)
   #define CPPUTEST_CHECK_FORMAT(type, format_parameter, other_parameters) __attribute__ ((format (type, format_parameter, other_parameters)))
 #else
   #define CPPUTEST_CHECK_FORMAT(type, format_parameter, other_parameters) /* type, format_parameter, other_parameters */
@@ -348,10 +353,6 @@ typedef struct
   #else
     #define CPPUTEST_DESTRUCTOR_OVERRIDE
   #endif
-#endif
-
-#ifdef __clang__
- #pragma clang diagnostic pop
 #endif
 
 #endif
